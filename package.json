@@ -1,14 +1,21 @@
 {
   "name": "ServerGamerHubX",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Serveur Node.js GamerHubX",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
     "express": "^4.19.2",
-    "mysql2": "^3.11.0",
-    "dotenv": "^16.4.5"
+    "google-auth-library": "^9.14.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.3"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }
