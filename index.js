@@ -39,38 +39,35 @@ const authLimiter = rateLimit({
   message: { error: "Trop de tentatives, réessayez plus tard." }
 });
 
+// --- VARIABLES INTÉGRÉES ---
 const PORT = 3000;
 const JWT_SECRET = "super-secret-key";
 const TOKEN_TTL = "7d";
 const HASH_ROUNDS = 10;
 const API_KEY_LENGTH = 32;
 const GOOGLE_CLIENT_ID = "855054001146-oo88bdvkb1e4hh386c2mjngk4s1mq7ff.apps.googleusercontent.com";
+const DB_CONNECTION_STRING = "postgres://avnadmin:AVNS_BvVULOCxM7CcMQd0Aqw@mysql-1a36101-botwii.c.aivencloud.com:14721/defaultdb?sslmode=require";
+// -----------------------------
+
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
-// Connexion PostgreSQL
-const DB_CONNECTION_STRING = "postgres://avnadmin:AVNS_BvVULOCxM7CcMQd0Aqw@mysql-1a36101-botwii.c.aivencloud.com:14721/defaultdb?sslmode=require";
-const DB_SSL_REJECT_UNAUTHORIZED = false;
 
 /* ====== DB CONNEXION ====== */
 let db;
 async function connectDB() {
-  const sslOptions = process.env.DB_SSL_CERT_CONTENT ? {
-    ca: process.env.DB_SSL_CERT_CONTENT,
-    rejectUnauthorized: true // Active la vérification du certificat
-  } : {
-    rejectUnauthorized: false
-  };
-
   db = new pg.Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: sslOptions
+    connectionString: DB_CONNECTION_STRING,
+    ssl: {
+      rejectUnauthorized: false
+    }
   });
 
   await db.connect();
   console.log("✅ Connecté à PostgreSQL");
 }
+
 await connectDB();
-await connectDB();
+
 
 /* ====== CRÉATION DES TABLES ====== */
 async function createTables() {
