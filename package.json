@@ -7,15 +7,16 @@
   "scripts": {
     "start": "node index.js"
   },
+  "author": "Mauricio Mangituka",
+  "license": "ISC",
   "dependencies": {
-    "express": "^4.19.2",
-    "cors": "^2.8.5",
-    "pg": "^8.12.0",
     "bcrypt": "^5.1.1",
-    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1",
+    "express-validator": "^7.1.0",
     "google-auth-library": "^9.11.0",
-    "dotenv": "^16.4.5",
-    "express-rate-limit": "^7.2.0",
-    "express-validator": "^7.0.1"
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0"
   }
 }
