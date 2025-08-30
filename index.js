@@ -54,15 +54,22 @@ const DB_SSL_REJECT_UNAUTHORIZED = false;
 /* ====== DB CONNEXION ====== */
 let db;
 async function connectDB() {
+  const sslOptions = process.env.DB_SSL_CERT_CONTENT ? {
+    ca: process.env.DB_SSL_CERT_CONTENT,
+    rejectUnauthorized: true // Active la vérification du certificat
+  } : {
+    rejectUnauthorized: false
+  };
+
   db = new pg.Client({
-    connectionString: DB_CONNECTION_STRING,
-    ssl: {
-      rejectUnauthorized: DB_SSL_REJECT_UNAUTHORIZED,
-    },
+    connectionString: process.env.DATABASE_URL,
+    ssl: sslOptions
   });
+
   await db.connect();
   console.log("✅ Connecté à PostgreSQL");
 }
+await connectDB();
 await connectDB();
 
 /* ====== CRÉATION DES TABLES ====== */
