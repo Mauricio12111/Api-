@@ -1,23 +1,14 @@
 {
   "name": "ServerGamerHubX",
   "version": "1.0.0",
-  "description": "API backend pour GamerHubX",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "engines": {
-    "node": "22.x"
-  },
   "dependencies": {
-    "bcrypt": "^5.1.0",
-    "crypto": "^1.0.1",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "express-rate-limit": "^7.0.0",
-    "express-validator": "^7.0.1",
-    "google-auth-library": "^8.9.0",
-    "jsonwebtoken": "^9.0.0",
-    "mysql2": "^3.5.2"
+    "express": "^4.19.2",
+    "mysql2": "^3.11.0",
+    "dotenv": "^16.4.5"
   }
 }
