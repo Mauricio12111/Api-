@@ -15,7 +15,7 @@ import { PublicKey } from "@solana/web3.js";
 
 /* ====== CONFIG ====== */
 
-// Utilise les variables d'environnement. C'est CRUCIAL pour la sécurité et pour Render.
+// Le code va maintenant lire les variables que tu as mises dans Render.
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -24,16 +24,15 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 // Validation : le serveur ne démarrera pas si les secrets ne sont pas définis.
 if (!DATABASE_URL || !JWT_SECRET) {
   console.error("ERREUR: Les variables d'environnement DATABASE_URL et JWT_SECRET sont requises.");
-  process.exit(1); // Arrête le processus si les secrets manquent
+  process.exit(1);
 }
 
 const app = express();
 app.use(express.json());
-// Important pour que express-rate-limit fonctionne correctement derrière un proxy comme Render
 app.set("trust proxy", 1); 
 
 // CORS
-const ALLOWED_ORIGINS = ["*"]; // Pour la production, tu devrais lister tes domaines : ['https://ton-front.com']
+const ALLOWED_ORIGINS = ["*"]; // Pour la production, liste tes domaines : ['https://ton-front.com']
 app.use(
   cors({
     origin: (origin, cb) => {
@@ -45,8 +44,8 @@ app.use(
 );
 
 // Rate limit
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 })); // 15 minutes
-const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20, message: { error: "Trop de tentatives, réessayez plus tard." } }); // 10 minutes
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20, message: { error: "Trop de tentatives, réessayez plus tard." } });
 
 // Constantes
 const TOKEN_TTL = "7d";
@@ -56,19 +55,17 @@ const API_KEY_LENGTH = 32;
 // Google Client
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
-// PostgreSQL Pool
-// Render fournit une DATABASE_URL. C'est la seule chose dont 'pg' a besoin.
+// PostgreSQL Pool - Simplifié pour fonctionner avec Render
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  // Requis pour les connexions sur Render
   ssl: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, // Requis pour les connexions sur Render
   },
 });
 
 /* ====== HELPERS ====== */
 function signToken(userId: number) {
-  return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: TOKEN_TTL });
+  return jwt.sign({ id: userId }, JWT_SECRET!, { expiresIn: TOKEN_TTL });
 }
 
 async function logAction(userId: number | null, action: string, details = {}) {
@@ -79,14 +76,13 @@ async function logAction(userId: number | null, action: string, details = {}) {
   }
 }
 
-// J'ai ajouté les types pour Request, Response, NextFunction pour plus de clarté
 async function authMiddleware(req: Request & { user?: any }, res: Response, next: NextFunction) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
   if (!token) return res.status(401).json({ error: "Authentification requise" });
 
   try {
-    const payload: any = jwt.verify(token, JWT_SECRET);
+    const payload: any = jwt.verify(token, JWT_SECRET!);
     req.user = { id: payload.id };
     next();
   } catch {
@@ -186,7 +182,7 @@ app.post("/connexion-google", authLimiter, async (req: Request, res: Response) =
   try {
     const ticket = await googleClient.verifyIdToken({ idToken: tokenId, audience: GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
-    if (!payload) return res.status(400).json({ error: "Token Google invalide" });
+    if (!payload || !payload.sub || !payload.email) return res.status(400).json({ error: "Token Google invalide ou informations manquantes" });
 
     const { sub: googleId, email, name, picture } = payload;
 
@@ -194,17 +190,15 @@ app.post("/connexion-google", authLimiter, async (req: Request, res: Response) =
     const existingUserResult = await pool.query("SELECT * FROM users WHERE google_id = $1 OR email = $2", [googleId, email]);
     
     if (existingUserResult.rows.length === 0) {
-      // Nouvel utilisateur
       const result = await pool.query(
         "INSERT INTO users (email, google_id, username, avatar, status) VALUES ($1, $2, $3, $4, 'en_ligne') RETURNING *",
         [email, googleId, name || `user_${googleId}`, picture || null]
       );
       user = result.rows[0];
     } else {
-      // Utilisateur existant, on met à jour google_id s'il n'existait pas
       user = existingUserResult.rows[0];
       if (!user.google_id) {
-        const result = await pool.query("UPDATE users SET google_id = $1 WHERE id = $2 RETURNING *", [googleId, user.id]);
+        const result = await pool.query("UPDATE users SET google_id = $1, avatar = COALESCE($2, avatar) WHERE id = $3 RETURNING *", [googleId, picture, user.id]);
         user = result.rows[0];
       }
     }
@@ -227,17 +221,9 @@ app.post("/connexion-google", authLimiter, async (req: Request, res: Response) =
 app.post("/connexion-solana", async (req: Request, res: Response) => {
   try {
     const { publicKey, signature, message } = req.body;
-    if (!publicKey || !signature || !message)
-      return res.status(400).json({ error: "publicKey, signature et message requis" });
-
-    // NOTE: La vérification de la signature Solana est simplifiée.
-    // Pour une vraie sécurité, vous devriez utiliser une librairie comme 'tweetnacl' pour vérifier la signature
-    // const nacl = require('tweetnacl');
-    // const messageBytes = new TextEncoder().encode(message);
-    // const signatureBytes = bs58.decode(signature);
-    // const publicKeyBytes = new PublicKey(publicKey).toBytes();
-    // const isVerified = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
-    // if (!isVerified) return res.status(403).json({ error: "Signature Solana invalide." });
+    if (!publicKey || !signature || !message) return res.status(400).json({ error: "publicKey, signature et message requis" });
+    
+    // NOTE: La vérification de la signature Solana est simplifiée. Pour une vraie sécurité, vous devriez utiliser une librairie comme 'tweetnacl'.
     
     let { rows } = await pool.query("SELECT * FROM users WHERE solana_pubkey=$1", [publicKey]);
     let user;
@@ -265,8 +251,8 @@ app.post("/connexion-solana", async (req: Request, res: Response) => {
   }
 });
 
+
 /* ====== ROUTES PROTÉGÉES ====== */
-// Toutes les routes commençant par /api nécessiteront une authentification
 app.use("/api", authMiddleware);
 
 app.get("/api/me", async (req: Request & { user?: any }, res: Response) => {
@@ -318,12 +304,10 @@ app.get("/api/coffre", async (req: Request & { user?: any }, res: Response) => {
 });
 
 /* ====== HANDLERS ====== */
-// Gestionnaire pour les routes non trouvées (404)
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Route introuvable" });
 });
 
-// Gestionnaire d'erreurs global
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error("Erreur serveur non gérée:", err);
   res.status(500).json({ error: "Une erreur interne est survenue" });
