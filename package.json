@@ -4,13 +4,17 @@
   "description": "Serveur API GamerHubX avec email, Google et Solana auth, coffre-fort, API key",
   "main": "index.js",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
+    "preinstall": "npm cache clean --force",
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
   "keywords": ["gamer", "api", "express", "supabase", "solana", "google-auth"],
   "author": "Mauricio",
-  "license": "MIT",
+  "license": "SECURITY.md",
   "dependencies": {
     "google-auth-library": "^10.0.0",
     "@solana/web3.js": "^2.3.0",
