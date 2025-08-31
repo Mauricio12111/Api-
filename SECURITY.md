@@ -12,7 +12,7 @@ We are committed to ensuring the security of our application. Security updates w
 
 The security of our users' data is a top priority. If you discover a security vulnerability, we appreciate your help in disclosing it to us in a responsible manner.
 
-Please report any security issues directly to **security@votre-domaine.com** (remplace cette adresse e-mail).
+Please report any security issues directly to **security@MauricioMagic631@gmail.com** (remplace cette adresse e-mail).
 
 Please include the following details with your report:
 * A description of the location and potential impact of the vulnerability.
