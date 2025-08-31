@@ -2,7 +2,7 @@
   "name": "gamerhubx-api",
   "version": "1.0.0",
   "description": "API for GamerHubX",
-  "main": "dist/index.js",
+  "main": "index.js",
   "type": "module",
   "author": "Mauricio Mangituka",
   "license": "MIT",
