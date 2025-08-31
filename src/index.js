@@ -1,27 +1,25 @@
-// src/index.ts
+// src/index.js
 
 // Importe dotenv pour charger les variables d'environnement du fichier .env en local
 import 'dotenv/config'; 
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
 import cors from "cors";
-import { Pool } from "pg";
+import pg from "pg"; // Note: l'import change légèrement ici
+const { Pool } = pg;
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { body, validationResult } from "express-validator";
-import { PublicKey } from "@solana/web3.js";
 
 /* ====== CONFIG ====== */
 
-// Le code va maintenant lire les variables que tu as mises dans Render.
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 
-// Validation : le serveur ne démarrera pas si les secrets ne sont pas définis.
 if (!DATABASE_URL || !JWT_SECRET) {
   console.error("ERREUR: Les variables d'environnement DATABASE_URL et JWT_SECRET sont requises.");
   process.exit(1);
@@ -32,7 +30,7 @@ app.use(express.json());
 app.set("trust proxy", 1); 
 
 // CORS
-const ALLOWED_ORIGINS = ["*"]; // Pour la production, liste tes domaines : ['https://ton-front.com']
+const ALLOWED_ORIGINS = ["*"];
 app.use(
   cors({
     origin: (origin, cb) => {
@@ -55,34 +53,34 @@ const API_KEY_LENGTH = 32;
 // Google Client
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
-// PostgreSQL Pool - Simplifié pour fonctionner avec Render
+// PostgreSQL Pool
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false, // Requis pour les connexions sur Render
+    rejectUnauthorized: false,
   },
 });
 
 /* ====== HELPERS ====== */
-function signToken(userId: number) {
-  return jwt.sign({ id: userId }, JWT_SECRET!, { expiresIn: TOKEN_TTL });
+function signToken(userId) {
+  return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: TOKEN_TTL });
 }
 
-async function logAction(userId: number | null, action: string, details = {}) {
+async function logAction(userId, action, details = {}) {
   try {
     await pool.query("INSERT INTO audit_logs (user_id, action, details) VALUES ($1, $2, $3)", [userId, action, details]);
-  } catch (e: any) {
+  } catch (e) {
     console.warn("Audit log error:", e.message);
   }
 }
 
-async function authMiddleware(req: Request & { user?: any }, res: Response, next: NextFunction) {
+async function authMiddleware(req, res, next) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
   if (!token) return res.status(401).json({ error: "Authentification requise" });
 
   try {
-    const payload: any = jwt.verify(token, JWT_SECRET!);
+    const payload = jwt.verify(token, JWT_SECRET);
     req.user = { id: payload.id };
     next();
   } catch {
@@ -91,12 +89,12 @@ async function authMiddleware(req: Request & { user?: any }, res: Response, next
 }
 
 /* ====== ROUTES PUBLIQUES ====== */
-app.get("/", (req: Request, res: Response) => res.json({ ok: true, service: "GamerHubX API", version: "1.0.0" }));
-app.get("/health", async (req: Request, res: Response) => {
+app.get("/", (req, res) => res.json({ ok: true, service: "GamerHubX API", version: "1.0.0" }));
+app.get("/health", async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT NOW()");
     res.json({ status: "ok", now: rows[0].now });
-  } catch (e: any) {
+  } catch (e) {
     res.status(503).json({ status: "db_error", error: e.message });
   }
 });
@@ -108,7 +106,7 @@ app.post(
   body("email").isEmail(),
   body("password").isLength({ min: 6 }),
   body("username").isLength({ min: 3, max: 32 }),
-  async (req: Request, res: Response) => {
+  async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
@@ -129,7 +127,7 @@ app.post(
 
       await logAction(user.id, "register", { email, username });
       res.status(201).json({ message: "Compte créé", token, user });
-    } catch (e: any) {
+    } catch (e) {
       if (e.code === "23505") return res.status(409).json({ error: "Email ou username déjà utilisé" });
       console.error("Erreur inscription:", e);
       res.status(500).json({ error: "Erreur lors de l'inscription", details: e.message });
@@ -142,7 +140,7 @@ app.post(
   authLimiter,
   body("email").isEmail(),
   body("password").isLength({ min: 6 }),
-  async (req: Request, res: Response) => {
+  async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
@@ -165,7 +163,7 @@ app.post(
 
       await logAction(user.id, "login_email");
       res.json({ message: "Connexion réussie", token, user: { id: user.id, email: user.email, username: user.username } });
-    } catch (e: any) {
+    } catch (e) {
       console.error("Erreur connexion:", e);
       res.status(500).json({ error: "Erreur de connexion", details: e.message });
     }
@@ -173,7 +171,7 @@ app.post(
 );
 
 /* ====== AUTH GOOGLE ====== */
-app.post("/connexion-google", authLimiter, async (req: Request, res: Response) => {
+app.post("/connexion-google", authLimiter, async (req, res) => {
   if (!googleClient) return res.status(500).json({ error: "La connexion Google n'est pas configurée côté serveur." });
 
   const { tokenId } = req.body;
@@ -211,19 +209,17 @@ app.post("/connexion-google", authLimiter, async (req: Request, res: Response) =
 
     await logAction(user.id, "login_google");
     res.json({ message: "Connexion Google réussie", token, user: { id: user.id, email: user.email, username: user.username, avatar: user.avatar } });
-  } catch (e: any) {
+  } catch (e) {
     console.error("Erreur connexion Google:", e);
     res.status(400).json({ error: "Échec de la connexion Google", details: e.message });
   }
 });
 
 /* ====== AUTH SOLANA ====== */
-app.post("/connexion-solana", async (req: Request, res: Response) => {
+app.post("/connexion-solana", async (req, res) => {
   try {
     const { publicKey, signature, message } = req.body;
     if (!publicKey || !signature || !message) return res.status(400).json({ error: "publicKey, signature et message requis" });
-    
-    // NOTE: La vérification de la signature Solana est simplifiée. Pour une vraie sécurité, vous devriez utiliser une librairie comme 'tweetnacl'.
     
     let { rows } = await pool.query("SELECT * FROM users WHERE solana_pubkey=$1", [publicKey]);
     let user;
@@ -245,7 +241,7 @@ app.post("/connexion-solana", async (req: Request, res: Response) => {
 
     await logAction(user.id, "login_solana", { publicKey });
     res.json({ message: "Connexion Solana réussie", token, user: { id: user.id, solana_pubkey: publicKey } });
-  } catch (e: any) {
+  } catch (e) {
     console.error("Erreur connexion Solana:", e);
     res.status(500).json({ error: "Erreur connexion Solana", details: e.message });
   }
@@ -255,30 +251,30 @@ app.post("/connexion-solana", async (req: Request, res: Response) => {
 /* ====== ROUTES PROTÉGÉES ====== */
 app.use("/api", authMiddleware);
 
-app.get("/api/me", async (req: Request & { user?: any }, res: Response) => {
+app.get("/api/me", async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT id, email, username, avatar, status, solana_pubkey, created_at FROM users WHERE id=$1", [req.user.id]);
     if (rows.length === 0) return res.status(404).json({ error: "Utilisateur non trouvé" });
     res.json(rows[0]);
-  } catch (e: any) {
+  } catch (e) {
     console.error("Erreur /api/me:", e);
     res.status(500).json({ error: "Erreur lors de la récupération du profil", details: e.message });
   }
 });
 
-app.post("/api/generer-cle", async (req: Request & { user?: any }, res: Response) => {
+app.post("/api/generer-cle", async (req, res) => {
   try {
     const apiKey = crypto.randomBytes(API_KEY_LENGTH).toString("hex");
     await pool.query("INSERT INTO api_keys (user_id, api_key) VALUES ($1, $2)", [req.user.id, apiKey]);
     await logAction(req.user.id, "api_key_generate");
     res.json({ message: "Clé API générée", apiKey });
-  } catch (e: any) {
+  } catch (e) {
     console.error("Erreur /api/generer-cle:", e);
     res.status(500).json({ error: "Erreur lors de la génération de la clé", details: e.message });
   }
 });
 
-app.post("/api/coffre/ajouter", body("amount").isFloat({ gt: 0 }), async (req: Request & { user?: any }, res: Response) => {
+app.post("/api/coffre/ajouter", body("amount").isFloat({ gt: 0 }), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
@@ -287,28 +283,28 @@ app.post("/api/coffre/ajouter", body("amount").isFloat({ gt: 0 }), async (req: R
     await pool.query("INSERT INTO coffre_fort (user_id, amount, currency, type, status, details) VALUES ($1,$2,$3,$4,'en_attente',$5)", [req.user.id, amount, currency, type, details]);
     await logAction(req.user.id, "vault_add", { amount, currency, type });
     res.status(201).json({ message: "Transaction ajoutée au coffre-fort" });
-  } catch (e: any) {
+  } catch (e) {
     console.error("Erreur /api/coffre/ajouter:", e);
     res.status(500).json({ error: "Erreur lors de l'ajout au coffre", details: e.message });
   }
 });
 
-app.get("/api/coffre", async (req: Request & { user?: any }, res: Response) => {
+app.get("/api/coffre", async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT id, amount, currency, type, status, details, created_at FROM coffre_fort WHERE user_id=$1 ORDER BY created_at DESC", [req.user.id]);
     res.json(rows);
-  } catch (e: any) {
+  } catch (e) {
     console.error("Erreur /api/coffre:", e);
     res.status(500).json({ error: "Erreur lors de la lecture du coffre", details: e.message });
   }
 });
 
 /* ====== HANDLERS ====== */
-app.use((req: Request, res: Response) => {
+app.use((req, res, next) => {
   res.status(404).json({ error: "Route introuvable" });
 });
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err, req, res, next) => {
   console.error("Erreur serveur non gérée:", err);
   res.status(500).json({ error: "Une erreur interne est survenue" });
 });
