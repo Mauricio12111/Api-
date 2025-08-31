@@ -2,14 +2,13 @@
   "name": "gamerhubx-api",
   "version": "1.0.0",
   "description": "API for GamerHubX",
-  "main": "index.js",
+  "main": "src/index.js",
   "type": "module",
   "author": "Mauricio Mangituka",
   "license": "MIT",
   "scripts": {
-    "start": "node dist/index.js",
-    "build": "tsc",
-    "dev": "nodemon src/index.ts"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
   },
   "dependencies": {
     "@solana/web3.js": "^1.91.8",
@@ -24,14 +23,6 @@
     "pg": "^8.12.0"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.6",
-    "@types/node": "^20.14.2",
-    "@types/pg": "^8.11.6",
-    "nodemon": "^3.1.3",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.4.5"
+    "nodemon": "^3.1.3"
   }
 }
